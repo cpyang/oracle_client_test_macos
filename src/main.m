@@ -13,7 +13,7 @@ const char* g_password = NULL;
 const char* g_connect_string = NULL;
 const char* g_sql = "SELECT 'Hello World!' FROM DUAL";
 
-OCISessionPool *g_poolhp = NULL;
+OCISPool *g_poolhp = NULL; // Corrected type from OCISessionPool to OCISPool
 OCIAuthInfo *g_authp = NULL;
 OCISvcCtx *g_pooled_svchp = NULL; // For pooled connection
 
@@ -79,11 +79,27 @@ void wrapper_terminate_connection() {
 
 // Wrapper functions for pooled test
 void wrapper_create_session_pool() {
-    checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, (text*)g_username, (ub4)strlen(g_username), (text*)g_password, (ub4)strlen(g_password), (text*)g_connect_string, (ub4)strlen(g_connect_string), OCI_DEFAULT), "session pool create");
+    sb4 oci_status = 0; // Local status variable
+    checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, 
+                                        (text*)g_username, (ub4)strlen(g_username), 
+                                        (text*)g_password, (ub4)strlen(g_password), 
+                                        (text*)g_connect_string, (ub4)strlen(g_connect_string), 
+                                        NULL, 0, // session tag, tag len
+                                        OCI_DEFAULT, // mode
+                                        NULL, 0, // poolParams, poolParamsLen
+                                        NULL, 0, // options, optionsLen
+                                        &oci_status), "session pool create"); // Pass address of local status variable
 }
 
 void wrapper_get_session_from_pool() {
-    checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, g_authp, (text*)g_connect_string, (ub4)strlen(g_connect_string), NULL, 0, NULL, NULL, (ub4)OCI_DEFAULT), "session get from pool");
+    sb4 oci_status = 0; // Local status variable
+    checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, g_authp, 
+                                    (text*)g_connect_string, (ub4)strlen(g_connect_string), 
+                                    NULL, 0, // session tag, tag len
+                                    NULL, // sessionhp
+                                    0, // sessionhpLen
+                                    OCI_DEFAULT, // mode
+                                    &oci_status), "session get from pool"); // Pass address of local status variable
 }
 
 void wrapper_execute_sql_pooled() {
@@ -91,11 +107,15 @@ void wrapper_execute_sql_pooled() {
 }
 
 void wrapper_release_session_to_pool() {
-    checkerr(g_errhp, OCISessionRelease(g_pooled_svchp, g_errhp, NULL, OCI_DEFAULT), "session release to pool");
+    sb4 oci_status = 0; // Local status variable
+    checkerr(g_errhp, OCISessionRelease(g_pooled_svchp, g_errhp, 
+                                        NULL, 0, // tag, tagLen
+                                        &oci_status), "session release to pool"); // Pass address of local status variable
 }
 
 void wrapper_terminate_session_pool() {
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp), "session pool destroy");
+    sb4 oci_status = 0; // Local status variable
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, &oci_status), "session pool destroy"); // Pass address of local status variable
 }
 
 
@@ -110,7 +130,7 @@ int main(int argc, const char * argv[]) {
     const char* connect_string_arg = argv[3];
     
     // Add parameters to the connection string
-    char* final_connect_string = (char*)malloc(strlen(connect_string_arg) + 50); // Sufficient size for params
+    char* final_connect_string = (char*)malloc(strlen(connect_string_arg) + strlen("(TCP.NODELAY=YES)(DISABLE_OOB=ON)") + strlen("(DESCRIPTION=)") + 1); // Sufficient size for params
     strcpy(final_connect_string, connect_string_arg);
     const char* params_to_add = "(TCP.NODELAY=YES)(DISABLE_OOB=ON)";
     char* description_pos = strstr(final_connect_string, "(DESCRIPTION=");
@@ -118,8 +138,8 @@ int main(int argc, const char * argv[]) {
         // Shift existing content to make space for params_to_add
         char* temp_suffix = (char*)malloc(strlen(description_pos + strlen("(DESCRIPTION=")) + 1);
         strcpy(temp_suffix, description_pos + strlen("(DESCRIPTION="));
-        strcpy(description_pos + strlen("(DESCRIPTION="), params_to_add);
-        strcat(description_pos + strlen("(DESCRIPTION=") + strlen(params_to_add), temp_suffix);
+        memmove(description_pos + strlen("(DESCRIPTION=") + strlen(params_to_add), description_pos + strlen("(DESCRIPTION="), strlen(temp_suffix) + 1);
+        memcpy(description_pos + strlen("(DESCRIPTION="), params_to_add, strlen(params_to_add));
         free(temp_suffix);
     } else {
         // If (DESCRIPTION= is not found, prepend to connect string
