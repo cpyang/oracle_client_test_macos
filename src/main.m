@@ -84,7 +84,7 @@ void wrapper_terminate_connection() {
 void wrapper_create_session_pool() {
     // Corrected arguments for OCISessionPoolCreate based on provided ociap.h
     // Arguments: envhp, errhp, spoolhp, poolName, poolNameLen, connStr, connStrLen, sessMin, sessMax, sessIncr, userid, useridLen, password, passwordLen, mode
-    checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, 
+    checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, g_poolhp, // Removed & from g_poolhp
                                         &g_pool_name, &g_pool_name_len, // OUT parameters for pool name
                                         (OraText*)g_connect_string, (ub4)strlen(g_connect_string), // connStr, connStrLen
                                         1, 5, 1, // sessMin, sessMax, sessIncr (example values, adjust as needed)
@@ -106,10 +106,10 @@ void wrapper_get_session_from_pool() {
                                     NULL, 0, // tagInfo, tagInfo_len (for specific session tag)
                                     &ret_tag_info, &ret_tag_info_len, // retTagInfo, retTagInfo_len
                                     &found, // found (OUT)
-                                    OCI_SESGET_SPOOL), "session get from pool"); // mode
+                                    OCI_SPOOL), "session get from pool"); // mode changed from OCI_SESGET_SPOOL to OCI_SPOOL
     
     // Free ret_tag_info if it was allocated by OCI and not needed further
-    if (ret_tag_info) OCIFree(ret_tag_info, g_errhp, OCI_HTYPE_KPR); // OCI_HTYPE_KPR is common for OCI-allocated memory
+    if (ret_tag_info) OCIFree(g_envhp, g_errhp, ret_tag_info, OCI_HTYPE_KPR); // Corrected OCIFree arguments
 }
 
 void wrapper_execute_sql_pooled() {
@@ -221,7 +221,7 @@ int main(int argc, const char * argv[]) {
     printf("Session pool terminated.\n");
 
     if (g_authp) OCIHandleFree(g_authp, OCI_HTYPE_AUTHINFO);
-    if (g_pool_name) OCIFree(g_pool_name, g_errhp, OCI_HTYPE_KPR); // Free the pool name allocated by OCI
+    if (g_pool_name) OCIFree(g_envhp, g_errhp, g_pool_name, OCI_HTYPE_KPR); // Free the pool name allocated by OCI
     // if (g_srvhp) OCIHandleFree(g_srvhp, OCI_HTYPE_SERVER); // Not used in this refactored code
     if (g_errhp) OCIHandleFree(g_errhp, OCI_HTYPE_ERROR);
     if (g_envhp) OCIHandleFree(g_envhp, OCI_HTYPE_ENV);
