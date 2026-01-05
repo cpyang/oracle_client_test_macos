@@ -106,7 +106,7 @@ void wrapper_get_session_from_pool() {
                                     NULL, 0, // tagInfo, tagInfo_len (for specific session tag)
                                     &ret_tag_info, &ret_tag_info_len, // retTagInfo, retTagInfo_len
                                     &found, // found (OUT)
-                                    OCI_SPOOL), "session get from pool"); // mode changed from OCI_SESGET_SPOOL to OCI_SPOOL
+                                    OCI_SESSGET_SPOOL), "session get from pool");
     
     // If ret_tag_info is allocated by OCI, it should be freed appropriately.
     // Given the issues with OCIFree, we'll omit explicit freeing here for now
@@ -128,7 +128,7 @@ void wrapper_release_session_to_pool() {
 
 void wrapper_terminate_session_pool() {
     // ub4 mode is the last argument, not sb4 *status
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); 
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_SPD_FORCE), "session pool destroy"); 
 }
 
 
@@ -171,10 +171,12 @@ int main(int argc, const char * argv[]) {
         g_connect_string = final_connect_string_buffer;
     }
 
+    printf("Connect String: %s\n", g_connect_string);
+
     printf("Oracle Client Test Program (Objective-C)\n");
     printf("----------------------------------------\n");
 
-    checkerr(g_errhp, OCIEnvCreate(&g_envhp, OCI_DEFAULT, NULL, NULL, NULL, NULL, 0, NULL), "environment create");
+    checkerr(g_errhp, OCIEnvCreate(&g_envhp, OCI_THREADED, NULL, NULL, NULL, NULL, 0, NULL), "environment create");
     checkerr(g_errhp, OCIHandleAlloc(g_envhp, (dvoid **)&g_errhp, OCI_HTYPE_ERROR, 0, NULL), "error handle alloc");
     // No need to allocate srvhp for direct connection/session pool
 
@@ -200,10 +202,12 @@ int main(int argc, const char * argv[]) {
     checkerr(g_errhp, OCIHandleAlloc(g_envhp, (dvoid **)&g_authp, OCI_HTYPE_AUTHINFO, 0, NULL), "authinfo handle alloc");
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_username, (ub4)strlen(g_username), OCI_ATTR_USERNAME, g_errhp), "set username");
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_password, (ub4)strlen(g_password), OCI_ATTR_PASSWORD, g_errhp), "set password");
+    checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_poolhp, OCI_HTYPE_SPOOL, (size_t) 0, (dvoid **) 0),"pool handle alloc");
+    checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_errhp, OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0),"error handle alloc");
 
     // Create Session Pool
     measure_latency("Create Session Pool", wrapper_create_session_pool);
-    printf("Session pool created.\n");
+    printf("Session pool %s created.\n",g_pool_name);
 
     for (int i = 0; i < 5; ++i) {
         printf("Iteration %d\n", i + 1);
