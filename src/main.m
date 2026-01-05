@@ -79,27 +79,26 @@ void wrapper_terminate_connection() {
 
 // Wrapper functions for pooled test
 void wrapper_create_session_pool() {
-    sb4 oci_status = 0; // Local status variable
+    // Corrected arguments for OCISessionPoolCreate
     checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, 
                                         (text*)g_username, (ub4)strlen(g_username), 
                                         (text*)g_password, (ub4)strlen(g_password), 
                                         (text*)g_connect_string, (ub4)strlen(g_connect_string), 
-                                        NULL, 0, // session tag, tag len
                                         OCI_DEFAULT, // mode
                                         NULL, 0, // poolParams, poolParamsLen
                                         NULL, 0, // options, optionsLen
-                                        &oci_status), "session pool create"); // Pass address of local status variable
+                                        NULL), "session pool create"); // sb4 *status is the last argument, passing NULL as we check with checkerr 
 }
 
 void wrapper_get_session_from_pool() {
-    sb4 oci_status = 0; // Local status variable
+    // Corrected arguments for OCISessionGet
     checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, g_authp, 
                                     (text*)g_connect_string, (ub4)strlen(g_connect_string), 
-                                    NULL, 0, // session tag, tag len
+                                    NULL, 0, // tag, tagLen
                                     NULL, // sessionhp
                                     0, // sessionhpLen
                                     OCI_DEFAULT, // mode
-                                    &oci_status), "session get from pool"); // Pass address of local status variable
+                                    NULL), "session get from pool"); // sb4 *status is the last argument, passing NULL as we check with checkerr
 }
 
 void wrapper_execute_sql_pooled() {
@@ -107,15 +106,15 @@ void wrapper_execute_sql_pooled() {
 }
 
 void wrapper_release_session_to_pool() {
-    sb4 oci_status = 0; // Local status variable
+    // Corrected arguments for OCISessionRelease
     checkerr(g_errhp, OCISessionRelease(g_pooled_svchp, g_errhp, 
                                         NULL, 0, // tag, tagLen
-                                        &oci_status), "session release to pool"); // Pass address of local status variable
+                                        OCI_DEFAULT), "session release to pool"); // ub4 mode is the last argument
 }
 
 void wrapper_terminate_session_pool() {
-    sb4 oci_status = 0; // Local status variable
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, &oci_status), "session pool destroy"); // Pass address of local status variable
+    // Corrected arguments for OCISessionPoolDestroy
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); // ub4 mode is the last argument
 }
 
 
@@ -130,23 +129,36 @@ int main(int argc, const char * argv[]) {
     const char* connect_string_arg = argv[3];
     
     // Add parameters to the connection string
-    char* final_connect_string = (char*)malloc(strlen(connect_string_arg) + strlen("(TCP.NODELAY=YES)(DISABLE_OOB=ON)") + strlen("(DESCRIPTION=)") + 1); // Sufficient size for params
+    // Calculate required size more accurately
+    size_t final_connect_string_len = strlen(connect_string_arg) + strlen("(TCP.NODELAY=YES)(DISABLE_OOB=ON)") + strlen("(DESCRIPTION=)") + 1;
+    char* final_connect_string = (char*)malloc(final_connect_string_len); 
+
     strcpy(final_connect_string, connect_string_arg);
     const char* params_to_add = "(TCP.NODELAY=YES)(DISABLE_OOB=ON)";
     char* description_pos = strstr(final_connect_string, "(DESCRIPTION=");
+
     if (description_pos != NULL) {
-        // Shift existing content to make space for params_to_add
-        char* temp_suffix = (char*)malloc(strlen(description_pos + strlen("(DESCRIPTION=")) + 1);
-        strcpy(temp_suffix, description_pos + strlen("(DESCRIPTION="));
-        memmove(description_pos + strlen("(DESCRIPTION=") + strlen(params_to_add), description_pos + strlen("(DESCRIPTION="), strlen(temp_suffix) + 1);
-        memcpy(description_pos + strlen("(DESCRIPTION="), params_to_add, strlen(params_to_add));
-        free(temp_suffix);
+        // Corrected memory manipulation for inserting params
+        size_t desc_tag_len = strlen("(DESCRIPTION=");
+        size_t params_len = strlen(params_to_add);
+        size_t suffix_len = strlen(description_pos + desc_tag_len);
+        
+        // Shift existing content to make space
+        memmove(description_pos + desc_tag_len + params_len, 
+                description_pos + desc_tag_len, 
+                suffix_len + 1); // +1 for null terminator
+        
+        // Copy new parameters into the gap
+        memcpy(description_pos + desc_tag_len, params_to_add, params_len);
     } else {
         // If (DESCRIPTION= is not found, prepend to connect string
         char* original_connect_string = (char*)malloc(strlen(final_connect_string) + 1);
         strcpy(original_connect_string, final_connect_string);
-        free(final_connect_string);
-        final_connect_string = (char*)malloc(strlen(original_connect_string) + strlen(params_to_add) + strlen("(DESCRIPTION=)") + 1);
+        free(final_connect_string); // Free the old allocation
+        
+        final_connect_string_len = strlen(original_connect_string) + strlen(params_to_add) + strlen("(DESCRIPTION=") + 1;
+        final_connect_string = (char*)malloc(final_connect_string_len);
+        
         strcpy(final_connect_string, "(DESCRIPTION=");
         strcat(final_connect_string, params_to_add);
         strcat(final_connect_string, original_connect_string);
