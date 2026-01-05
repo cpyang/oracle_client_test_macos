@@ -97,7 +97,7 @@ void wrapper_get_session_from_pool() {
                                     NULL, 0, // tag, tagLen
                                     NULL, // sessionhp
                                     0, // sessionhpLen
-                                    OCI_DEFAULT, // mode
+                                    OCI_SESGET_SPOOL, // mode: explicitly get from session pool
                                     &status_val), "session get from pool"); // Pass address of status_val
 }
 
