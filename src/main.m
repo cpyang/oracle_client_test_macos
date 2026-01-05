@@ -13,7 +13,10 @@ const char* g_password = NULL;
 const char* g_connect_string = NULL;
 const char* g_sql = "SELECT 'Hello World!' FROM DUAL";
 
-OCISPool *g_poolhp = NULL; // Corrected type from OCISessionPool to OCISPool
+OCISPool *g_poolhp = NULL; 
+OraText *g_pool_name = NULL; // To store the pool name returned by OCISessionPoolCreate
+ub4 g_pool_name_len = 0;
+
 OCIAuthInfo *g_authp = NULL;
 OCISvcCtx *g_pooled_svchp = NULL; // For pooled connection
 
@@ -79,26 +82,34 @@ void wrapper_terminate_connection() {
 
 // Wrapper functions for pooled test
 void wrapper_create_session_pool() {
-    sb4 status_val = 0; // Declare a variable to hold the status
+    // Corrected arguments for OCISessionPoolCreate based on provided ociap.h
+    // Arguments: envhp, errhp, spoolhp, poolName, poolNameLen, connStr, connStrLen, sessMin, sessMax, sessIncr, userid, useridLen, password, passwordLen, mode
     checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, 
-                                        (text*)g_username, (ub4)strlen(g_username), 
-                                        (text*)g_password, (ub4)strlen(g_password), 
-                                        (text*)g_connect_string, (ub4)strlen(g_connect_string), 
-                                        OCI_DEFAULT, // mode
-                                        NULL, 0, // poolParams, poolParamsLen
-                                        NULL, 0, // options, optionsLen
-                                        &status_val), "session pool create"); // Pass address of status_val
+                                        &g_pool_name, &g_pool_name_len, // OUT parameters for pool name
+                                        (OraText*)g_connect_string, (ub4)strlen(g_connect_string), // connStr, connStrLen
+                                        1, 5, 1, // sessMin, sessMax, sessIncr (example values, adjust as needed)
+                                        (OraText*)g_username, (ub4)strlen(g_username), // userid, useridLen
+                                        (OraText*)g_password, (ub4)strlen(g_password), // password, passwordLen
+                                        OCI_DEFAULT), "session pool create"); // mode
 }
 
 void wrapper_get_session_from_pool() {
-    sb4 status_val = 0; // Declare a variable to hold the status
-    checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, g_authp, 
-                                    (text*)g_connect_string, (ub4)strlen(g_connect_string), 
-                                    NULL, 0, // tag, tagLen
-                                    NULL, // sessionhp
-                                    0, // sessionhpLen
-                                    OCI_SESGET_SPOOL, // mode: explicitly get from session pool
-                                    &status_val), "session get from pool"); // Pass address of status_val
+    boolean found = FALSE;
+    OraText *ret_tag_info = NULL;
+    ub4 ret_tag_info_len = 0;
+    
+    // Corrected arguments for OCISessionGet based on provided ociap.h
+    // Arguments: envhp, errhp, svchp, authhp, poolName, poolName_len, tagInfo, tagInfo_len, retTagInfo, retTagInfo_len, found, mode
+    checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, 
+                                    g_authp,
+                                    g_pool_name, g_pool_name_len, // poolName, poolName_len
+                                    NULL, 0, // tagInfo, tagInfo_len (for specific session tag)
+                                    &ret_tag_info, &ret_tag_info_len, // retTagInfo, retTagInfo_len
+                                    &found, // found (OUT)
+                                    OCI_SESGET_SPOOL), "session get from pool"); // mode
+    
+    // Free ret_tag_info if it was allocated by OCI and not needed further
+    if (ret_tag_info) OCIFree(ret_tag_info, g_errhp, OCI_HTYPE_KPR); // OCI_HTYPE_KPR is common for OCI-allocated memory
 }
 
 void wrapper_execute_sql_pooled() {
@@ -210,6 +221,7 @@ int main(int argc, const char * argv[]) {
     printf("Session pool terminated.\n");
 
     if (g_authp) OCIHandleFree(g_authp, OCI_HTYPE_AUTHINFO);
+    if (g_pool_name) OCIFree(g_pool_name, g_errhp, OCI_HTYPE_KPR); // Free the pool name allocated by OCI
     // if (g_srvhp) OCIHandleFree(g_srvhp, OCI_HTYPE_SERVER); // Not used in this refactored code
     if (g_errhp) OCIHandleFree(g_errhp, OCI_HTYPE_ERROR);
     if (g_envhp) OCIHandleFree(g_envhp, OCI_HTYPE_ENV);
