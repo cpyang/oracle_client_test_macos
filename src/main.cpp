@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
     StatelessConnectionPool *pool = nullptr;
     try {
         // min, max, incr
-        pool = env->createStatelessConnectionPool(username, password, connect_string, 2, 10, 2);
+        pool = env->createStatelessConnectionPool(username, password, connect_string, 5, 1, 1);
         std::cout << "Connection pool created." << std::endl;
     } catch (SQLException &ex) {
         std::cerr << "Error creating connection pool: " << ex.getMessage() << std::endl;
