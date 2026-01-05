@@ -79,7 +79,7 @@ void wrapper_terminate_connection() {
 
 // Wrapper functions for pooled test
 void wrapper_create_session_pool() {
-    // Corrected arguments for OCISessionPoolCreate
+    sb4 status_val = 0; // Declare a variable to hold the status
     checkerr(g_errhp, OCISessionPoolCreate(g_envhp, g_errhp, &g_poolhp, 
                                         (text*)g_username, (ub4)strlen(g_username), 
                                         (text*)g_password, (ub4)strlen(g_password), 
@@ -87,18 +87,18 @@ void wrapper_create_session_pool() {
                                         OCI_DEFAULT, // mode
                                         NULL, 0, // poolParams, poolParamsLen
                                         NULL, 0, // options, optionsLen
-                                        NULL), "session pool create"); // sb4 *status is the last argument, passing NULL as we check with checkerr 
+                                        &status_val), "session pool create"); // Pass address of status_val
 }
 
 void wrapper_get_session_from_pool() {
-    // Corrected arguments for OCISessionGet
+    sb4 status_val = 0; // Declare a variable to hold the status
     checkerr(g_errhp, OCISessionGet(g_envhp, g_errhp, &g_pooled_svchp, g_authp, 
                                     (text*)g_connect_string, (ub4)strlen(g_connect_string), 
                                     NULL, 0, // tag, tagLen
                                     NULL, // sessionhp
                                     0, // sessionhpLen
                                     OCI_DEFAULT, // mode
-                                    NULL), "session get from pool"); // sb4 *status is the last argument, passing NULL as we check with checkerr
+                                    &status_val), "session get from pool"); // Pass address of status_val
 }
 
 void wrapper_execute_sql_pooled() {
@@ -106,15 +106,15 @@ void wrapper_execute_sql_pooled() {
 }
 
 void wrapper_release_session_to_pool() {
-    // Corrected arguments for OCISessionRelease
+    // ub4 mode is the last argument, not sb4 *status
     checkerr(g_errhp, OCISessionRelease(g_pooled_svchp, g_errhp, 
                                         NULL, 0, // tag, tagLen
-                                        OCI_DEFAULT), "session release to pool"); // ub4 mode is the last argument
+                                        OCI_DEFAULT), "session release to pool"); 
 }
 
 void wrapper_terminate_session_pool() {
-    // Corrected arguments for OCISessionPoolDestroy
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); // ub4 mode is the last argument
+    // ub4 mode is the last argument, not sb4 *status
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); 
 }
 
 
