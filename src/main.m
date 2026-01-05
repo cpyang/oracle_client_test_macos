@@ -128,43 +128,34 @@ int main(int argc, const char * argv[]) {
     g_password = argv[2];
     const char* connect_string_arg = argv[3];
     
-    // Add parameters to the connection string
-    // Calculate required size more accurately
-    size_t final_connect_string_len = strlen(connect_string_arg) + strlen("(TCP.NODELAY=YES)(DISABLE_OOB=ON)") + strlen("(DESCRIPTION=)") + 1;
-    char* final_connect_string = (char*)malloc(final_connect_string_len); 
-
-    strcpy(final_connect_string, connect_string_arg);
+    // Determine if the connect_string_arg is a full DESCRIPTION or a simple TNS alias/Easy Connect string
     const char* params_to_add = "(TCP.NODELAY=YES)(DISABLE_OOB=ON)";
-    char* description_pos = strstr(final_connect_string, "(DESCRIPTION=");
+    char* final_connect_string_buffer = NULL;
 
-    if (description_pos != NULL) {
-        // Corrected memory manipulation for inserting params
+    if (strstr(connect_string_arg, "(DESCRIPTION=") != NULL) {
+        // It's a full DESCRIPTION, modify it
+        size_t final_connect_string_len = strlen(connect_string_arg) + strlen(params_to_add) + 1;
+        final_connect_string_buffer = (char*)malloc(final_connect_string_len); 
+        strcpy(final_connect_string_buffer, connect_string_arg);
+        
+        char* description_pos = strstr(final_connect_string_buffer, "(DESCRIPTION=");
         size_t desc_tag_len = strlen("(DESCRIPTION=");
         size_t params_len = strlen(params_to_add);
         size_t suffix_len = strlen(description_pos + desc_tag_len);
         
-        // Shift existing content to make space
         memmove(description_pos + desc_tag_len + params_len, 
                 description_pos + desc_tag_len, 
                 suffix_len + 1); // +1 for null terminator
-        
-        // Copy new parameters into the gap
         memcpy(description_pos + desc_tag_len, params_to_add, params_len);
+        
+        g_connect_string = final_connect_string_buffer;
     } else {
-        // If (DESCRIPTION= is not found, prepend to connect string
-        char* original_connect_string = (char*)malloc(strlen(final_connect_string) + 1);
-        strcpy(original_connect_string, final_connect_string);
-        free(final_connect_string); // Free the old allocation
-        
-        final_connect_string_len = strlen(original_connect_string) + strlen(params_to_add) + strlen("(DESCRIPTION=") + 1;
-        final_connect_string = (char*)malloc(final_connect_string_len);
-        
-        strcpy(final_connect_string, "(DESCRIPTION=");
-        strcat(final_connect_string, params_to_add);
-        strcat(final_connect_string, original_connect_string);
-        free(original_connect_string);
+        // It's a simple TNS alias or Easy Connect string, use as is
+        // Still need to allocate and copy to g_connect_string
+        final_connect_string_buffer = (char*)malloc(strlen(connect_string_arg) + 1);
+        strcpy(final_connect_string_buffer, connect_string_arg);
+        g_connect_string = final_connect_string_buffer;
     }
-    g_connect_string = final_connect_string;
 
     printf("Oracle Client Test Program (Objective-C)\n");
     printf("----------------------------------------\n");
