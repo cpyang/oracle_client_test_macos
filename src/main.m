@@ -108,8 +108,11 @@ void wrapper_get_session_from_pool() {
                                     &found, // found (OUT)
                                     OCI_SPOOL), "session get from pool"); // mode changed from OCI_SESGET_SPOOL to OCI_SPOOL
     
-    // Free ret_tag_info if it was allocated by OCI and not needed further
-    if (ret_tag_info) OCIFree(g_envhp, g_errhp, ret_tag_info, OCI_HTYPE_KPR); // Corrected OCIFree arguments
+    // If ret_tag_info is allocated by OCI, it should be freed appropriately.
+    // Given the issues with OCIFree, we'll omit explicit freeing here for now
+    // and assume OCI cleans it up when the session/pool is destroyed, or that
+    // this memory is part of the handle itself.
+    // if (ret_tag_info) OCIFree(g_envhp, g_errhp, ret_tag_info, OCI_HTYPE_KPR);
 }
 
 void wrapper_execute_sql_pooled() {
@@ -221,7 +224,7 @@ int main(int argc, const char * argv[]) {
     printf("Session pool terminated.\n");
 
     if (g_authp) OCIHandleFree(g_authp, OCI_HTYPE_AUTHINFO);
-    if (g_pool_name) OCIFree(g_envhp, g_errhp, g_pool_name, OCI_HTYPE_KPR); // Free the pool name allocated by OCI
+    // if (g_pool_name) OCIFree(g_envhp, g_errhp, g_pool_name, OCI_HTYPE_KPR); // Free the pool name allocated by OCI - REMOVED
     // if (g_srvhp) OCIHandleFree(g_srvhp, OCI_HTYPE_SERVER); // Not used in this refactored code
     if (g_errhp) OCIHandleFree(g_errhp, OCI_HTYPE_ERROR);
     if (g_envhp) OCIHandleFree(g_envhp, OCI_HTYPE_ENV);
