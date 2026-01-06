@@ -128,7 +128,7 @@ void wrapper_release_session_to_pool() {
 
 void wrapper_terminate_session_pool() {
     // ub4 mode is the last argument, not sb4 *status
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_SPD_FORCE), "session pool destroy"); 
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); 
 }
 
 
@@ -203,7 +203,6 @@ int main(int argc, const char * argv[]) {
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_username, (ub4)strlen(g_username), OCI_ATTR_USERNAME, g_errhp), "set username");
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_password, (ub4)strlen(g_password), OCI_ATTR_PASSWORD, g_errhp), "set password");
     checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_poolhp, OCI_HTYPE_SPOOL, (size_t) 0, (dvoid **) 0),"pool handle alloc");
-    checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_errhp, OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0),"error handle alloc");
 
     // Create Session Pool
     measure_latency("Create Session Pool", wrapper_create_session_pool);
@@ -216,7 +215,8 @@ int main(int argc, const char * argv[]) {
         if (g_pooled_svchp) {
             measure_latency("Execute SQL", wrapper_execute_sql_pooled);
             measure_latency("Release Session to Pool", wrapper_release_session_to_pool);
-            OCIHandleFree(g_pooled_svchp, OCI_HTYPE_SVCCTX); // Free service context handle
+            // The service context handle from a session pool should not be freed by the application.
+            // It is managed by the pool. Releasing it is sufficient.
             g_pooled_svchp = NULL;
         }
         printf("\n");
@@ -227,9 +227,8 @@ int main(int argc, const char * argv[]) {
     measure_latency("Terminate Session Pool", wrapper_terminate_session_pool);
     printf("Session pool terminated.\n");
 
+    if (g_poolhp) OCIHandleFree(g_poolhp, OCI_HTYPE_SPOOL);
     if (g_authp) OCIHandleFree(g_authp, OCI_HTYPE_AUTHINFO);
-    // if (g_pool_name) OCIFree(g_envhp, g_errhp, g_pool_name, OCI_HTYPE_KPR); // Free the pool name allocated by OCI - REMOVED
-    // if (g_srvhp) OCIHandleFree(g_srvhp, OCI_HTYPE_SERVER); // Not used in this refactored code
     if (g_errhp) OCIHandleFree(g_errhp, OCI_HTYPE_ERROR);
     if (g_envhp) OCIHandleFree(g_envhp, OCI_HTYPE_ENV);
     free((void*)g_connect_string);
