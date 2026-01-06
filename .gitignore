@@ -1,3 +1,4 @@
 build/
 *.o
-sqlnet.ora\ntnsnames.ora
+sqlnet.ora
+tnsnames.ora
