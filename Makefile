@@ -15,7 +15,7 @@ LDFLAGS = -L$(ORACLE_HOME) -locci -lclntsh -lnnz19 -rpath $(ORACLE_HOME)
 OCC = clang
 
 # Objective-C Compiler flags
-OCFLAGS = -I$(ORACLE_HOME)/sdk/include -g -lobjc
+OCFLAGS = -I$(ORACLE_HOME)/sdk/include -g
 
 # Objective-C Linker flags for macOS
 OBJC_LDFLAGS = -L$(ORACLE_HOME) -lclntsh -lnnz19 -rpath $(ORACLE_HOME)
