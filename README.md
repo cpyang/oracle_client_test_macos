@@ -85,3 +85,40 @@ Run the Objective-C executable with your database credentials and connection str
 ```bash
 ./build/oracle_test_objc myuser mypassword //db.example.com:1521/ORCL
 ```
+
+### Environment Setup on macOS
+
+To run this application, you need to configure several environment variables and potentially a `sqlnet.ora` file.
+
+**1. Set Environment Variables**
+
+You need to set the following environment variables in your shell profile (e.g., `~/.zshrc`, `~/.bash_profile`):
+
+-   `ORACLE_HOME`: This should point to your Oracle Instant Client directory.
+    ```bash
+    export ORACLE_HOME=/path/to/your/instantclient_19_8
+    ```
+
+-   `TNS_ADMIN`: This should point to the directory where your Oracle configuration files (`tnsnames.ora`, `sqlnet.ora`) are located. It's common to place these inside your `ORACLE_HOME` directory.
+    ```bash
+    export TNS_ADMIN=$ORACLE_HOME/network/admin
+    ```
+    Ensure this directory exists. You might need to create it: `mkdir -p $ORACLE_HOME/network/admin`.
+
+-   `DYLD_LIBRARY_PATH`: On macOS, this variable must include the Oracle Instant Client directory so that the dynamic linker can find the OCI libraries.
+    ```bash
+    export DYLD_LIBRARY_PATH=$ORACLE_HOME:$DYLD_LIBRARY_PATH
+    ```
+
+**2. Configure `sqlnet.ora`**
+
+For optimal performance and to avoid potential connection issues, it is recommended to add the following parameters to a `sqlnet.ora` file located in your `$TNS_ADMIN` directory.
+
+Create or edit the file at `$TNS_ADMIN/sqlnet.ora` and add the following lines:
+
+```
+TCP.NODELAY=YES
+DISABLE_OOB=ON
+```
+
+This will ensure that `TCP.NODELAY` and `DISABLE_OOB` are applied to all connections made from this client setup.

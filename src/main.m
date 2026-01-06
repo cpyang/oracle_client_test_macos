@@ -128,7 +128,7 @@ void wrapper_release_session_to_pool() {
 
 void wrapper_terminate_session_pool() {
     // ub4 mode is the last argument, not sb4 *status
-    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_SPD_FORCE), "session pool destroy"); 
+    checkerr(g_errhp, OCISessionPoolDestroy(g_poolhp, g_errhp, OCI_DEFAULT), "session pool destroy"); 
 }
 
 
@@ -142,34 +142,10 @@ int main(int argc, const char * argv[]) {
     g_password = argv[2];
     const char* connect_string_arg = argv[3];
     
-    // Determine if the connect_string_arg is a full DESCRIPTION or a simple TNS alias/Easy Connect string
-    const char* params_to_add = "(TCP.NODELAY=YES)(DISABLE_OOB=ON)";
-    char* final_connect_string_buffer = NULL;
-
-    if (strstr(connect_string_arg, "(DESCRIPTION=") != NULL) {
-        // It's a full DESCRIPTION, modify it
-        size_t final_connect_string_len = strlen(connect_string_arg) + strlen(params_to_add) + 1;
-        final_connect_string_buffer = (char*)malloc(final_connect_string_len); 
-        strcpy(final_connect_string_buffer, connect_string_arg);
-        
-        char* description_pos = strstr(final_connect_string_buffer, "(DESCRIPTION=");
-        size_t desc_tag_len = strlen("(DESCRIPTION=");
-        size_t params_len = strlen(params_to_add);
-        size_t suffix_len = strlen(description_pos + desc_tag_len);
-        
-        memmove(description_pos + desc_tag_len + params_len, 
-                description_pos + desc_tag_len, 
-                suffix_len + 1); // +1 for null terminator
-        memcpy(description_pos + desc_tag_len, params_to_add, params_len);
-        
-        g_connect_string = final_connect_string_buffer;
-    } else {
-        // It's a simple TNS alias or Easy Connect string, use as is
-        // Still need to allocate and copy to g_connect_string
-        final_connect_string_buffer = (char*)malloc(strlen(connect_string_arg) + 1);
-        strcpy(final_connect_string_buffer, connect_string_arg);
-        g_connect_string = final_connect_string_buffer;
-    }
+    // Use the connect string directly from the command-line argument
+    char* final_connect_string_buffer = (char*)malloc(strlen(connect_string_arg) + 1);
+    strcpy(final_connect_string_buffer, connect_string_arg);
+    g_connect_string = final_connect_string_buffer;
 
     printf("Connect String: %s\n", g_connect_string);
 
@@ -203,7 +179,6 @@ int main(int argc, const char * argv[]) {
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_username, (ub4)strlen(g_username), OCI_ATTR_USERNAME, g_errhp), "set username");
     checkerr(g_errhp, OCIAttrSet(g_authp, OCI_HTYPE_AUTHINFO, (dvoid *)g_password, (ub4)strlen(g_password), OCI_ATTR_PASSWORD, g_errhp), "set password");
     checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_poolhp, OCI_HTYPE_SPOOL, (size_t) 0, (dvoid **) 0),"pool handle alloc");
-    checkerr(g_errhp, OCIHandleAlloc((dvoid *) g_envhp, (dvoid **) &g_errhp, OCI_HTYPE_ERROR, (size_t) 0, (dvoid **) 0),"error handle alloc");
 
     // Create Session Pool
     measure_latency("Create Session Pool", wrapper_create_session_pool);
@@ -216,7 +191,8 @@ int main(int argc, const char * argv[]) {
         if (g_pooled_svchp) {
             measure_latency("Execute SQL", wrapper_execute_sql_pooled);
             measure_latency("Release Session to Pool", wrapper_release_session_to_pool);
-            OCIHandleFree(g_pooled_svchp, OCI_HTYPE_SVCCTX); // Free service context handle
+            // The service context handle from a session pool should not be freed by the application.
+            // It is managed by the pool. Releasing it is sufficient.
             g_pooled_svchp = NULL;
         }
         printf("\n");
@@ -227,9 +203,8 @@ int main(int argc, const char * argv[]) {
     measure_latency("Terminate Session Pool", wrapper_terminate_session_pool);
     printf("Session pool terminated.\n");
 
+    if (g_poolhp) OCIHandleFree(g_poolhp, OCI_HTYPE_SPOOL);
     if (g_authp) OCIHandleFree(g_authp, OCI_HTYPE_AUTHINFO);
-    // if (g_pool_name) OCIFree(g_envhp, g_errhp, g_pool_name, OCI_HTYPE_KPR); // Free the pool name allocated by OCI - REMOVED
-    // if (g_srvhp) OCIHandleFree(g_srvhp, OCI_HTYPE_SERVER); // Not used in this refactored code
     if (g_errhp) OCIHandleFree(g_errhp, OCI_HTYPE_ERROR);
     if (g_envhp) OCIHandleFree(g_envhp, OCI_HTYPE_ENV);
     free((void*)g_connect_string);
