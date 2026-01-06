@@ -142,34 +142,10 @@ int main(int argc, const char * argv[]) {
     g_password = argv[2];
     const char* connect_string_arg = argv[3];
     
-    // Determine if the connect_string_arg is a full DESCRIPTION or a simple TNS alias/Easy Connect string
-    const char* params_to_add = "(TCP.NODELAY=YES)(DISABLE_OOB=ON)";
-    char* final_connect_string_buffer = NULL;
-
-    if (strstr(connect_string_arg, "(DESCRIPTION=") != NULL) {
-        // It's a full DESCRIPTION, modify it
-        size_t final_connect_string_len = strlen(connect_string_arg) + strlen(params_to_add) + 1;
-        final_connect_string_buffer = (char*)malloc(final_connect_string_len); 
-        strcpy(final_connect_string_buffer, connect_string_arg);
-        
-        char* description_pos = strstr(final_connect_string_buffer, "(DESCRIPTION=");
-        size_t desc_tag_len = strlen("(DESCRIPTION=");
-        size_t params_len = strlen(params_to_add);
-        size_t suffix_len = strlen(description_pos + desc_tag_len);
-        
-        memmove(description_pos + desc_tag_len + params_len, 
-                description_pos + desc_tag_len, 
-                suffix_len + 1); // +1 for null terminator
-        memcpy(description_pos + desc_tag_len, params_to_add, params_len);
-        
-        g_connect_string = final_connect_string_buffer;
-    } else {
-        // It's a simple TNS alias or Easy Connect string, use as is
-        // Still need to allocate and copy to g_connect_string
-        final_connect_string_buffer = (char*)malloc(strlen(connect_string_arg) + 1);
-        strcpy(final_connect_string_buffer, connect_string_arg);
-        g_connect_string = final_connect_string_buffer;
-    }
+    // Use the connect string directly from the command-line argument
+    char* final_connect_string_buffer = (char*)malloc(strlen(connect_string_arg) + 1);
+    strcpy(final_connect_string_buffer, connect_string_arg);
+    g_connect_string = final_connect_string_buffer;
 
     printf("Connect String: %s\n", g_connect_string);
 
