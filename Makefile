@@ -1,4 +1,5 @@
 # Makefile for Oracle C++ and Objective-C Test Programs
+ORACLE_HOME = /Users/mba11/instantclient_19_8
 
 # C++ Compiler
 CXX = g++
@@ -10,6 +11,7 @@ CXXFLAGS = -std=c++11 -I$(ORACLE_HOME)/sdk/include -g
 
 # C++ Linker flags for macOS
 LDFLAGS = -L$(ORACLE_HOME) -locci -lclntsh -lnnz19 -rpath $(ORACLE_HOME)
+#LDFLAGS = -L$(ORACLE_HOME) -locci -lclntsh -lnnz19 
 
 # Objective-C Compiler
 OCC = clang
@@ -19,6 +21,7 @@ OCFLAGS = -I$(ORACLE_HOME)/sdk/include -g
 
 # Objective-C Linker flags for macOS
 OBJC_LDFLAGS = -L$(ORACLE_HOME) -lclntsh -lnnz19 -rpath $(ORACLE_HOME)
+#OBJC_LDFLAGS = -L$(ORACLE_HOME) -lclntsh -lnnz19 
 
 # C++ Source files
 SRCS = src/main.cpp
@@ -36,10 +39,10 @@ OBJC_SRCS = src/main.m
 OBJC_OBJS = build/main_objc.o
 
 # Objective-C Executable name
-OBJC_TARGET = build/oracle_test_objc
+OBJC_TARGET = build/oracle_test_19_8
 
 # Default target
-all: $(TARGET) $(OBJC_TARGET)
+all: $(OBJC_TARGET)
 
 # Link C++ object files to create the executable
 $(TARGET): $(OBJS)

@@ -4,6 +4,42 @@
 #include <time.h>
 #include <oci.h>
 
+#import <Foundation/Foundation.h>
+#include <mach/mach_time.h>
+#include <sys/time.h>
+#include <errno.h>
+
+// Define the clock ID if the header is missing it (common in old SDKs)
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 0
+#endif
+
+int clock_gettime(int clock_id, struct timespec *ts) {
+    if (clock_id != CLOCK_MONOTONIC) {
+        // For REALTIME, we fall back to gettimeofday
+        struct timeval tv;
+        if (gettimeofday(&tv, NULL) != 0) return -1;
+        ts->tv_sec = tv.tv_sec;
+        ts->tv_nsec = tv.tv_usec * 1000;
+        return 0;
+    }
+
+    // Mach Absolute Time handling for MONOTONIC
+    static mach_timebase_info_data_t info;
+    if (info.denom == 0) {
+        mach_timebase_info(&info);
+    }
+
+    uint64_t now = mach_absolute_time();
+    uint64_t nanos = now * info.numer / info.denom;
+
+    ts->tv_sec = nanos / 1000000000UL;
+    ts->tv_nsec = nanos % 1000000000UL;
+    
+    return 0;
+}
+
+
 // Global context for wrapper functions
 OCIEnv *g_envhp = NULL;
 OCIError *g_errhp = NULL;
@@ -11,7 +47,8 @@ OCISvcCtx *g_svchp = NULL; // For non-pooled connection
 const char* g_username = NULL;
 const char* g_password = NULL;
 const char* g_connect_string = NULL;
-const char* g_sql = "SELECT 'Hello World!' FROM DUAL";
+//const char* g_sql = "SELECT * FROM ver";
+const char* g_sql = "SELECT DISTINCT s.client_version FROM v$session_connect_info s WHERE s.sid = SYS_CONTEXT('USERENV', 'SID')";
 
 OCISPool *g_poolhp = NULL; 
 OraText *g_pool_name = NULL; // To store the pool name returned by OCISessionPoolCreate
@@ -62,7 +99,7 @@ void run_query_on_svcctx(OCIEnv *envhp, OCIError *errhp, OCISvcCtx *svchp, const
     
     sword status = OCIStmtFetch2(stmthp, errhp, 1, OCI_FETCH_NEXT, 0, OCI_DEFAULT);
     if (status == OCI_SUCCESS || status == OCI_SUCCESS_WITH_INFO) {
-        // printf("Result: %s\n", result); // Suppress for performance test
+        printf("Result: %s\n", result); // Suppress for performance test
     }
     OCIHandleFree(stmthp, OCI_HTYPE_STMT);
 }
@@ -73,6 +110,7 @@ void wrapper_create_connection() {
 }
 
 void wrapper_execute_sql_non_pooled() {
+    printf("SQL: %s\n", g_sql);
     run_query_on_svcctx(g_envhp, g_errhp, g_svchp, g_sql);
 }
 
@@ -116,6 +154,7 @@ void wrapper_get_session_from_pool() {
 }
 
 void wrapper_execute_sql_pooled() {
+    printf("SQL: %s\n", g_sql);
     run_query_on_svcctx(g_envhp, g_errhp, g_pooled_svchp, g_sql);
 }
 
